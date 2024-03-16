@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from sklearn.tree import DecisionTreeClassifier
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -31,6 +32,14 @@ class SpotifyURL(BaseModel):
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 model = joblib.load("model.pkl")
 
 def get_token():
@@ -47,8 +56,6 @@ def get_token():
     SPOTIFY_TOKEN = response.json()["access_token"]
 
 def get_spotify_track_id(spotify_url: str) -> str:
-    # parts = spotify_url.split('/track/')[0]
-    # track_id = parts[-1].split('?')[0]
     return spotify_url.split('/track/')[1]
 
 def fetch_track_features(track_id: str):
@@ -70,7 +77,20 @@ async def make_prediction(song: SongFeatures):
         
         prediction = model.predict(input_data)
         
-        return {"prediction": prediction[0]}
+        return {"genre": prediction[0],
+                "features":{
+                    "danceability": song.danceability,
+                    "energy": song.energy,
+                    "key": song.key,
+                    "loudness": song.loudness,
+                    "speechiness": song.speechiness,
+                    "acousticness": song.acousticness,
+                    "instrumentalness": song.instrumentalness,
+                    "liveness": song.liveness,
+                    "valence": song.valence,
+                    "tempo": song.tempo,
+                    }
+                }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
@@ -83,7 +103,20 @@ async def predict_from_spotify(spotify_url: SpotifyURL):
                                 features['speechiness'], features['acousticness'], features['instrumentalness'],
                                 features['liveness'], features['valence'], features['tempo']]])
         prediction = model.predict(input_data)
-        return {"prediction": prediction[0]}
+        return {"genre": prediction[0],
+                "features":{
+                    "danceability": features['danceability'],
+                    "energy": features['energy'],
+                    "key": features['key'],
+                    "loudness": features['loudness'],
+                    "speechiness": features['speechiness'],
+                    "acousticness": features['acousticness'],
+                    "instrumentalness": features['instrumentalness'],
+                    "liveness": features['liveness'],
+                    "valence": features['valence'],
+                    "tempo": features['tempo'],
+                    }
+                }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
     
